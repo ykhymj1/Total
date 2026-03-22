@@ -379,19 +379,15 @@ async function initFirebase() {
       signInWithEmailAndPassword, createUserWithEmailAndPassword,
       signOut, doc, setDoc, getDoc
     };
+    // ★ init 함수에서 사용하기 위해 별도 저장
+    window._fb_internal = { onAuthStateChanged };
 
-    // ★ 로그인 상태 감지 — 앱 흐름의 핵심
-    onAuthStateChanged(_fbAuth, async (user) => {
+    // ★ 로그인 상태 감지 — 로그인/로그아웃 변경시 UI 업데이트
+    onAuthStateChanged(_fbAuth, (user) => {
       _fbUser = user;
       if (user) {
-        // ✅ 로그인됨
         updateSyncStatus(true, user.email);
-        // 혹시 로그인 화면이 떠있으면 닫기
-        hideLoginScreen();
-        // 백그라운드에서 자동 백업 (3초 후)
-        setTimeout(() => backupToCloud(), 3000);
       } else {
-        // ❌ 로그아웃 상태
         updateSyncStatus(false, null);
       }
     });
@@ -863,28 +859,39 @@ function startApp() {
   // Firebase 초기화 시도
   const fbOk = await initFirebase();
 
-  if (fbOk) {
-    // Firebase OK → 로그인 상태 확인 (onAuthStateChanged 에서 자동 처리)
-    // 약간 기다렸다가 (onAuthStateChanged 응답 대기) 로그인 여부 결정
-    await new Promise(r => setTimeout(r, 800));
-
-    if (!_fbUser) {
-      // 로그인 안 된 상태
-      const skipped = localStorage.getItem('fb_login_skipped');
-      if (skipped) {
-        // 이전에 "나중에 하기" 선택 → 바로 PIN 화면
-        startApp();
-      } else {
-        // 로그인 화면 표시
-        showLoginScreen();
-      }
-    } else {
-      // 이미 로그인됨 → 바로 PIN 화면
-      startApp();
-    }
-  } else {
-    // Firebase 실패 (오프라인 등) → 그냥 PIN 화면
+  if (!fbOk) {
+    // Firebase 실패 (오프라인 등) → 그냥 PIN 화면으로
     startApp();
+    return;
+  }
+
+  // ★ 핵심 수정: onAuthStateChanged 가 한 번 응답할 때까지 기다림
+  // Firebase는 로그인 상태를 비동기로 알려줌 — 이걸 기다려야 함
+  await new Promise((resolve) => {
+    const { onAuthStateChanged } = window._fb_internal;
+    const unsubscribe = onAuthStateChanged(_fbAuth, (user) => {
+      unsubscribe(); // 한 번만 실행
+      _fbUser = user;
+      resolve();
+    });
+    // 최대 3초 대기 후 타임아웃
+    setTimeout(resolve, 3000);
+  });
+
+  if (_fbUser) {
+    // ✅ 이미 로그인됨 → 바로 PIN 화면
+    updateSyncStatus(true, _fbUser.email);
+    setTimeout(() => backupToCloud(), 3000);
+    startApp();
+  } else {
+    // ❌ 로그아웃 상태
+    updateSyncStatus(false, null);
+    const skipped = localStorage.getItem('fb_login_skipped');
+    if (skipped) {
+      startApp(); // 나중에 하기 선택했었으면 PIN 화면
+    } else {
+      showLoginScreen(); // 로그인 화면 표시
+    }
   }
 })();
 </script>
