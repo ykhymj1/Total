@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0c2040"/>
+      <stop offset="100%" style="stop-color:#070e1c"/>
+    </linearGradient>
+    <linearGradient id="bar1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#60a5fa"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="bar2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffcc"/>
+      <stop offset="100%" style="stop-color:#4a8fff"/>
+    </linearGradient>
+    <linearGradient id="bar3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4a8fff"/>
+      <stop offset="100%" style="stop-color:#00ffcc"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- 배경 둥근 사각형 -->
+  <rect width="512" height="512" rx="110" ry="110" fill="url(#bg)"/>
+
+  <!-- 상단 그라데이션 라인 -->
+  <rect x="0" y="0" width="512" height="5" rx="3" fill="url(#line)"/>
+
+  <!-- 중앙 원형 글로우 배경 -->
+  <circle cx="256" cy="240" r="160" fill="#1e3a5f" opacity="0.25"/>
+
+  <!-- 막대 그래프 3개 -->
+  <!-- 왼쪽 막대 (파란) -->
+  <rect x="118" y="200" width="72" height="170" rx="12" fill="url(#bar1)"/>
+  <!-- 가운데 막대 (청록, 제일 높음) -->
+  <rect x="220" y="130" width="72" height="240" rx="12" fill="url(#bar2)"/>
+  <!-- 오른쪽 막대 (골드) -->
+  <rect x="322" y="165" width="72" height="205" rx="12" fill="url(#bar3)"/>
+
+  <!-- 상승 꺾은선 -->
+  <polyline points="130,310 220,220 310,170 400,120"
+    fill="none" stroke="#00ffcc" stroke-width="10"
+    stroke-linecap="round" stroke-linejoin="round"
+    opacity="0.85"/>
+
+  <!-- 꺾은선 끝점 원 -->
+  <circle cx="400" cy="120" r="14" fill="#00ffcc" opacity="0.9"/>
+
+  <!-- 하단 텍스트 -->
+  <text x="256" y="440" font-family="Arial, sans-serif" font-size="52"
+    font-weight="800" fill="white" text-anchor="middle"
+    letter-spacing="2">자산관리</text>
+
+  <!-- 하단 얇은 서브텍스트 -->
+  <text x="256" y="478" font-family="Arial, sans-serif" font-size="28"
+    font-weight="400" fill="#7090b8" text-anchor="middle"
+    letter-spacing="1">MY ASSET</text>
+</svg>
