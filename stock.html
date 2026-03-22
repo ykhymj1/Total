@@ -283,13 +283,14 @@ window.__cache = { prices: getPricesCache(), fxCache: getFxCache() };
 
 <!-- ════════════════════════════════════════
   ★ Firebase 동기화 (stock.html 전용)
-  - 종목 데이터(holdings)를 Firestore에 자동 저장
-  - 새 핸드폰에서 로그인하면 자동 복원
+  index.html → postMessage → 여기서 수신해서 백업/복원
 ════════════════════════════════════════ -->
 <script type="module">
-import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeApp }            from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, signInWithCustomToken, onAuthStateChanged }
+                                    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc }
+                                    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const FB_CONFIG = {
   apiKey:            "AIzaSyD9A3cbUujY4agOwB0OL45ccsfRhBXETMw",
@@ -300,125 +301,108 @@ const FB_CONFIG = {
   appId:             "1:1067760522796:web:f97a12c210482e6e8de389"
 };
 
-// iframe 안에서만 실행 (index.html 안에 iframe으로 열릴 때)
-// 직접 열어도 작동함
-const app  = initializeApp(FB_CONFIG, "stock-app");
-const auth = getAuth(app);
-const db   = getFirestore(app);
+const app = initializeApp(FB_CONFIG, "stock-instance");
+const db  = getFirestore(app);
 
-// 백업할 localStorage 키 목록
 const STOCK_KEYS = ["pf_v4", "pf_history_v1", "pf_acct_order", "pf_item_order"];
 
-// ── 백업: localStorage → Firestore ──
-async function backupStock(uid) {
+let _uid = null;
+let _backupTimer = null;
+
+// ── 백업 ──
+async function backupStock() {
+  if (!_uid) return;
   try {
     const data = { updatedAt: new Date().toISOString() };
     STOCK_KEYS.forEach(k => {
       const v = localStorage.getItem(k);
       if (v !== null) data[k] = v;
     });
-    await setDoc(doc(db, "users", uid, "apps", "stock"), data, { merge: true });
-    console.log("[Stock] Firestore 백업 완료 ✅");
-    showStockSyncBadge("✅ 백업됨");
+    await setDoc(doc(db, "users", _uid, "apps", "stock"), data, { merge: true });
+    showBadge("✅ 백업됨");
+    console.log("[Stock] 백업 완료");
   } catch(e) {
     console.warn("[Stock] 백업 실패:", e);
   }
 }
 
-// ── 복원: Firestore → localStorage ──
-async function restoreStock(uid) {
+// ── 복원 ──
+async function restoreStock() {
+  if (!_uid) return false;
   try {
-    const snap = await getDoc(doc(db, "users", uid, "apps", "stock"));
-    if (!snap.exists()) {
-      console.log("[Stock] 클라우드 데이터 없음 (처음 사용)");
-      return false;
-    }
+    const snap = await getDoc(doc(db, "users", _uid, "apps", "stock"));
+    if (!snap.exists()) return false;
     const data = snap.data();
-    let restored = false;
-    STOCK_KEYS.forEach(k => {
-      if (data[k] !== undefined) {
-        localStorage.setItem(k, data[k]);
-        restored = true;
-      }
-    });
-    if (restored) {
-      console.log("[Stock] Firestore 복원 완료 ✅");
-      return true;
-    }
-    return false;
+    let ok = false;
+    STOCK_KEYS.forEach(k => { if (data[k]) { localStorage.setItem(k, data[k]); ok = true; } });
+    return ok;
   } catch(e) {
     console.warn("[Stock] 복원 실패:", e);
     return false;
   }
 }
 
-// ── 동기화 상태 배지 표시 ──
-function showStockSyncBadge(msg) {
-  let badge = document.getElementById("_stock_sync_badge");
-  if (!badge) {
-    badge = document.createElement("div");
-    badge.id = "_stock_sync_badge";
-    badge.style.cssText = `
-      position:fixed; bottom:70px; right:12px; z-index:8000;
-      background:#0a1628; border:1px solid #00ffcc;
-      border-radius:20px; padding:6px 12px;
-      font-size:11px; color:#00ffcc;
-      font-family:'DM Mono',monospace;
-      pointer-events:none;
-      transition:opacity .3s;
-    `;
-    document.body.appendChild(badge);
+// ── 배지 표시 ──
+function showBadge(msg) {
+  let b = document.getElementById("_sb");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "_sb";
+    b.style.cssText = `position:fixed;bottom:70px;right:12px;z-index:9000;
+      background:#0a1628;border:1px solid #00ffcc;border-radius:20px;
+      padding:6px 14px;font-size:11px;color:#00ffcc;
+      font-family:'DM Mono',monospace;pointer-events:none;transition:opacity .5s;`;
+    document.body.appendChild(b);
   }
-  badge.textContent = "☁️ " + msg;
-  badge.style.opacity = "1";
-  setTimeout(() => { badge.style.opacity = "0"; }, 3000);
+  b.textContent = "☁️ " + msg;
+  b.style.opacity = "1";
+  setTimeout(() => b.style.opacity = "0", 3000);
 }
 
 // ── localStorage 변경 감지 → 자동 백업 ──
-let _backupTimer = null;
-let _currentUid  = null;
-
-const origSetItem = localStorage.setItem.bind(localStorage);
+const _orig = localStorage.setItem.bind(localStorage);
 localStorage.setItem = function(k, v) {
-  origSetItem(k, v);
-  if (STOCK_KEYS.includes(k) && _currentUid) {
+  _orig(k, v);
+  if (STOCK_KEYS.includes(k) && _uid) {
     clearTimeout(_backupTimer);
-    _backupTimer = setTimeout(() => backupStock(_currentUid), 3000);
+    _backupTimer = setTimeout(() => backupStock(), 3000);
   }
 };
 
-// ── 로그인 상태 감지 ──
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    console.log("[Stock] 로그인 안 됨 — 동기화 없이 로컬 사용");
-    return;
-  }
+// ── ★ 핵심: index.html에서 uid 전달받기 (postMessage) ──
+window.addEventListener("message", async (e) => {
+  if (!e.data) return;
 
-  _currentUid = user.uid;
-  console.log("[Stock] 로그인 감지:", user.email);
+  // index.html이 uid 전달
+  if (e.data.type === "FB_UID" && e.data.uid) {
+    _uid = e.data.uid;
+    console.log("[Stock] uid 수신:", _uid);
 
-  // ★ 핵심: 클라우드에 데이터가 있으면 복원, 없으면 현재 데이터 백업
-  const localData = localStorage.getItem("pf_v4");
-  const snap = await getDoc(doc(db, "users", user.uid, "apps", "stock"));
+    // 클라우드 데이터 확인
+    const snap = await getDoc(doc(db, "users", _uid, "apps", "stock"));
+    const local = localStorage.getItem("pf_v4");
+    const empty = !local || local === '{"holdings":{},"fxRate":1360}';
 
-  if (snap.exists() && snap.data()["pf_v4"]) {
-    // 클라우드 데이터 있음
-    const cloudData = snap.data()["pf_v4"];
-    if (!localData || localData === '{"holdings":{},"fxRate":1360}') {
-      // 로컬 데이터가 비어있음 → 클라우드에서 복원
-      const ok = await restoreStock(user.uid);
+    if (snap.exists() && snap.data()["pf_v4"] && empty) {
+      // 클라우드 데이터 있고 로컬 비어있음 → 복원
+      const ok = await restoreStock();
       if (ok) {
-        showStockSyncBadge("데이터 복원됨! 새로고침 중...");
+        showBadge("🔄 데이터 복원됨!");
         setTimeout(() => location.reload(), 1500);
       }
     } else {
-      // 로컬에도 데이터 있음 → 로컬이 최신이므로 백업
-      setTimeout(() => backupStock(user.uid), 2000);
+      // 로컬 데이터 → 클라우드 백업
+      setTimeout(() => backupStock(), 1000);
     }
-  } else {
-    // 클라우드 데이터 없음 → 현재 로컬 데이터를 백업
-    setTimeout(() => backupStock(user.uid), 2000);
   }
+});
+
+// ── index.html에 uid 요청 ──
+// 로드 완료 후 부모(index.html)에 uid 달라고 요청
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    window.parent.postMessage({ type: "NEED_UID" }, "*");
+  }, 500);
 });
 </script>
 

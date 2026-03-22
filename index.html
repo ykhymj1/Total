@@ -775,6 +775,20 @@ window.addEventListener('message', e => {
   if(!d||!d.type) return;
   if(d.type === 'GO_HOME'){ showHome(); return; }
 
+  // ★ stock.html / fund.html 이 uid 요청할 때 전달
+  if(d.type === 'NEED_UID' && _fbUser) {
+    // 어느 iframe에서 왔는지 확인해서 해당 iframe에만 전달
+    const stockFrame = document.getElementById('stockFrame');
+    const fundFrame  = document.getElementById('fundFrame');
+    if(e.source === stockFrame?.contentWindow) {
+      stockFrame.contentWindow.postMessage({ type:'FB_UID', uid:_fbUser.uid }, '*');
+    }
+    if(e.source === fundFrame?.contentWindow) {
+      fundFrame.contentWindow.postMessage({ type:'FB_UID', uid:_fbUser.uid }, '*');
+    }
+    return;
+  }
+
   if(d.type === 'STOCK_SUMMARY'){
     _stockData = d;
     document.getElementById('stockTotal').textContent = won(d.total);
