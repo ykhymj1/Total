@@ -724,13 +724,38 @@ function setSt(msg,type){
 
 /* 지문 인증 */
 async function tryBio(){
-  if(!bioOk()||!hasBio()){ setSt('지문 미등록. PIN을 입력해주세요','err'); setTimeout(()=>setSt('',''),2000); return; }
-  const bs=document.getElementById('bioStatus'); bs.textContent='지문을 인식해주세요...'; bs.className='bio-status';
+  if(!bioOk()||!hasBio()){
+    setSt('지문 미등록. PIN을 입력해주세요','err');
+    document.getElementById('bioRegBtn').style.display='flex';
+    setTimeout(()=>setSt('',''),2000);
+    return;
+  }
+  const bs=document.getElementById('bioStatus');
+  bs.textContent='지문을 인식해주세요...'; bs.className='bio-status';
   try{
     const b=Uint8Array.from(atob(localStorage.getItem(BIO_KEY)),c=>c.charCodeAt(0));
-    await navigator.credentials.get({publicKey:{rpId:RP_ID,challenge:crypto.getRandomValues(new Uint8Array(32)),timeout:60000,userVerification:'required',allowCredentials:[{id:b,type:'public-key'}]}});
+    await navigator.credentials.get({publicKey:{
+      rpId:RP_ID,
+      challenge:crypto.getRandomValues(new Uint8Array(32)),
+      timeout:60000,
+      userVerification:'required',
+      allowCredentials:[{id:b,type:'public-key'}]
+    }});
     bs.textContent=''; unlock();
-  } catch(e){ bs.textContent='인식 실패. PIN을 입력해주세요'; bs.className='bio-status err'; setTimeout(()=>{bs.textContent='';bs.className='bio-status';},2000); }
+  } catch(e){
+    // ★ 지문 인식 실패 → 잘못된 도메인 정보일 수 있음 → 자동 삭제
+    if(e.name==='NotAllowedError'||e.name==='InvalidStateError'||e.name==='SecurityError'){
+      localStorage.removeItem(BIO_KEY);
+      bs.textContent=''; bs.className='bio-status';
+      setSt('','');
+      document.getElementById('bioRegBtn').style.display='flex';
+      setSt('PIN 입력 후 지문을 새로 등록해주세요','');
+    } else {
+      bs.textContent='인식 실패. PIN을 입력해주세요';
+      bs.className='bio-status err';
+      setTimeout(()=>{bs.textContent='';bs.className='bio-status';},2000);
+    }
+  }
 }
 async function enrollBio(){
   if(!bioOk()){ document.getElementById('bioStatus').textContent='생체인식 미지원'; return; }
@@ -788,7 +813,15 @@ function lockApp(){
   document.getElementById('fundFrame').classList.remove('show');
   document.getElementById('lockScreen').classList.add('show');
   pinBuf=''; dots('d',0); setSt('','');
-  if(hasBio()) setTimeout(tryBio, 400);
+
+  // ★ 지문 등록됐으면 자동 시도 (단, 실패시 등록버튼 표시)
+  if(hasBio()) {
+    setSt('🫆 버튼으로 지문 잠금해제','');
+    // 자동 시도 안 함 — 버튼 누를 때만 시도
+  } else {
+    document.getElementById('bioRegBtn').style.display='flex';
+    setSt('PIN 입력 후 지문을 등록할 수 있습니다','');
+  }
 }
 
 /* ════════════════════════════════
@@ -863,20 +896,22 @@ function updateTotal(){
    Firebase 로그인 → PIN → 홈
 ════════════════════════════════ */
 function startApp() {
-  // PIN 설정 여부 확인
   if(!getPin()){
     document.getElementById('pinSetup').classList.add('show');
   } else {
     document.getElementById('lockScreen').classList.add('show');
     if(hasBio()){
+      // 지문 등록됨 → 버튼만 보여주고 자동 시도 안 함
       setSt('🫆 버튼으로 지문 잠금해제','');
-      setTimeout(tryBio, 400);
     } else {
+      // 지문 미등록 → 등록 버튼 표시
       document.getElementById('bioRegBtn').style.display='flex';
       setSt('PIN 입력 후 지문을 등록할 수 있습니다','');
     }
-    if(!bioOk()){ document.getElementById('bioRegBtn').style.display='none'; }
-    else{
+    // 지문 지원 여부 확인
+    if(!bioOk()){
+      document.getElementById('bioRegBtn').style.display='none';
+    } else {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(ok=>{
         if(!ok) document.getElementById('bioRegBtn').style.display='none';
       }).catch(()=>{});
