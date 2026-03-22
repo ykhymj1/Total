@@ -31,7 +31,7 @@ input:focus,select:focus{border-color:#60a5fa!important;outline:none;}
 <body>
 
 <!-- 잠금화면 -->
-<div id="lockScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,#0c2040 0%,#070e1c 100%);padding:32px 24px;max-width:480px;margin:0 auto;">
+<div id="lockScreen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,#0c2040 0%,#070e1c 100%);padding:32px 24px;max-width:480px;margin:0 auto;">
   <div style="text-align:center;margin-bottom:44px;">
     <div style="font-size:52px;margin-bottom:16px;">🔐</div>
     <div style="font-size:10px;color:#527a96;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;">MY PORTFOLIO</div>
@@ -73,7 +73,7 @@ input:focus,select:focus{border-color:#60a5fa!important;outline:none;}
   </div>
 </div>
 
-<div id="root" style="display:none;"></div>
+<div id="root" style="display:block;"></div>
 
 <script>
 var LOCK_KEY = "pf_lock_pw";
@@ -266,6 +266,8 @@ function portfolioInit() {
     });
 }
 portfolioInit();
+// iframe 모드: 잠금 없이 바로 실행
+if(window.self!==window.top){ unlock(); }
 
 // 캐시 복원
 function getPricesCache() {
@@ -1519,7 +1521,7 @@ function App(){
 
       {/* ★ 헤더 */}
       <div style={{padding:"48px 18px 18px",background:"linear-gradient(180deg,#0c2040,#070e1c)",borderBottom:`1px solid ${C.border}`}}>
-        <button onClick={()=>{try{window.parent.postMessage({type:'GO_HOME'},'*');}catch(e){}}} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:10,color:"#90b0cc",fontSize:13,padding:"6px 14px",marginBottom:12,cursor:"pointer",fontFamily:"'Noto Sans KR',sans-serif"}}>← 홈으로</button>
+        <button onClick={()=>{try{window.parent.postMessage({type:'GO_HOME'},'*');}catch(e){}}} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:12,color:"#c0d8f0",fontSize:15,fontWeight:700,padding:"10px 20px",marginBottom:14,cursor:"pointer",fontFamily:"'Noto Sans KR',sans-serif",minHeight:44}}>← 홈으로</button>
         <div style={{fontSize:10,color:C.muted,letterSpacing:4,textTransform:"uppercase",marginBottom:6}}>MY PORTFOLIO</div>
         <div style={{fontSize:34,fontWeight:800,color:"#fff",letterSpacing:-1.5,lineHeight:1.1}}>{won(myTotal.current)}</div>
         <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
