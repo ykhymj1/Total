@@ -1617,11 +1617,32 @@ function App(){
                           {ac.shared&&<span style={{fontSize:10,color:"#f59e0b",background:"#f59e0b1a",padding:"2px 7px",borderRadius:10}}>공동 1/2</span>}
                           {ac.pensionHint&&<span style={{fontSize:10,color:"#a78bfa",background:"#a78bfa1a",padding:"2px 7px",borderRadius:10}}>퇴직연금</span>}
                         </div>
-                        <div style={{fontSize:12,color:C.muted,marginTop:3}}>{(ac.list||[]).length}종목 · 투자금 {won(myInv)}</div>
+                        {/* 공동계좌: AMT투자원금 / 내투자원금 구분 표시 */}
+                        {ac.shared?(
+                          <div style={{marginTop:3}}>
+                            <div style={{fontSize:11,color:C.muted}}>{(ac.list||[]).length}종목 · AMT 투자원금 {won(ac.invested)}</div>
+                            <div style={{fontSize:11,color:"#f59e0b",marginTop:1}}>내 투자원금 {won(myInv)}</div>
+                          </div>
+                        ):(
+                          <div style={{fontSize:12,color:C.muted,marginTop:3}}>{(ac.list||[]).length}종목 · 투자금 {won(myInv)}</div>
+                        )}
                       </div>
                       <div style={{textAlign:"right",flexShrink:0}}>
-                        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{won(myCur)}</div>
-                        <ProfitBadge pct={ac.pct} pnl={myP} size="sm"/>
+                        {/* 공동계좌: 총금액 전체 표시 + 내수익률 구분 */}
+                        {ac.shared?(
+                          <div>
+                            <div style={{fontSize:15,fontWeight:800,color:C.text}}>{won(ac.current)}</div>
+                            <div style={{fontSize:10,color:C.muted,marginTop:1}}>내 평가금액 {won(myCur)}</div>
+                            <div style={{marginTop:3}}>
+                              <ProfitBadge pct={ac.pct} pnl={myP} size="sm"/>
+                            </div>
+                          </div>
+                        ):(
+                          <div>
+                            <div style={{fontSize:15,fontWeight:800,color:C.text}}>{won(myCur)}</div>
+                            <ProfitBadge pct={ac.pct} pnl={myP} size="sm"/>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <MiniBar pct={ac.pct}/>
@@ -1652,12 +1673,28 @@ function App(){
                     {curAcct.pensionHint&&<span style={{fontSize:11,color:"#a78bfa",background:"#a78bfa1a",padding:"2px 8px",borderRadius:10}}>🏦 퇴직연금</span>}
                   </div>
                   {curAcct.pensionHint&&<div style={{fontSize:12,color:C.sub,lineHeight:1.6}}>국내ETF: 티커+수량+평균단가 → 자동시세 | 펀드: 기준가+보유좌수 → 자동계산</div>}
-                  {curAcct.shared&&<div style={{fontSize:12,color:"#f59e0b",marginTop:2}}>수익의 1/2이 내 몫으로 집계</div>}
-                  <div style={{fontSize:12,color:C.muted,marginTop:4}}>투자원금 {won(curData.invested)}</div>
+                  {curAcct.shared?(
+                    <div style={{marginTop:2}}>
+                      <div style={{fontSize:12,color:C.muted}}>AMT 투자원금 {won(curData.invested)}</div>
+                      <div style={{fontSize:12,color:"#f59e0b",marginTop:1}}>내 투자원금 {won(curData.invested*0.5)}</div>
+                    </div>
+                  ):(
+                    <div style={{fontSize:12,color:C.muted,marginTop:4}}>투자원금 {won(curData.invested)}</div>
+                  )}
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:20,fontWeight:800,color:C.text}}>{won(curData.current)}</div>
-                  <ProfitBadge pct={curData.pct} pnl={curData.pnl}/>
+                  {curAcct.shared?(
+                    <div>
+                      <div style={{fontSize:20,fontWeight:800,color:C.text}}>{won(curData.current)}</div>
+                      <div style={{fontSize:11,color:C.muted,marginTop:1}}>내 평가금액 {won(curData.current*0.5)}</div>
+                      <div style={{marginTop:4}}><ProfitBadge pct={curData.pct} pnl={curData.pnl*0.5}/></div>
+                    </div>
+                  ):(
+                    <div>
+                      <div style={{fontSize:20,fontWeight:800,color:C.text}}>{won(curData.current)}</div>
+                      <ProfitBadge pct={curData.pct} pnl={curData.pnl}/>
+                    </div>
+                  )}
                 </div>
               </div>
               <MiniBar pct={curData.pct}/>
