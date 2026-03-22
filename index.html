@@ -491,20 +491,36 @@ window.skipLogin = function() {
 /* ════════════════════════════════
    ★ 클라우드 백업 / 복원
 ════════════════════════════════ */
-// 백업할 localStorage 키 목록
-const BACKUP_KEYS = ['asset_pin', 'asset_bio_cred'];
+// index.html 백업 키
+const INDEX_KEYS = ['asset_pin', 'asset_bio_cred'];
+// stock.html 백업 키
+const STOCK_KEYS = ['pf_v4', 'pf_history_v1', 'pf_acct_order', 'pf_item_order'];
+// fund.html 백업 키
+const FUND_KEYS  = ['app_pin', 'bio_cred_id', 'gs_url', 'sc4'];
 
 async function backupToCloud() {
   if (!_fbUser || !_fbDb) return;
   try {
-    const data = { updatedAt: new Date().toISOString() };
-    BACKUP_KEYS.forEach(k => {
-      const v = localStorage.getItem(k);
-      if (v !== null) data[k] = v;
-    });
     const { doc, setDoc } = window._fb;
-    await setDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'index'), data, { merge: true });
-    console.log('[Firebase] index 백업 완료');
+    const now = new Date().toISOString();
+
+    // index 백업
+    const indexData = { updatedAt: now };
+    INDEX_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v) indexData[k] = v; });
+    await setDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'index'), indexData, { merge: true });
+
+    // stock 백업
+    const stockData = { updatedAt: now };
+    STOCK_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v) stockData[k] = v; });
+    await setDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'stock'), stockData, { merge: true });
+
+    // fund 백업
+    const fundData = { updatedAt: now };
+    FUND_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v) fundData[k] = v; });
+    await setDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'fund'), fundData, { merge: true });
+
+    console.log('[Firebase] 전체 백업 완료 ✅');
+    showSyncToast('☁️ 전체 백업 완료!');
   } catch(e) {
     console.warn('[Firebase] 백업 실패:', e);
   }
@@ -514,12 +530,28 @@ async function restoreFromCloud() {
   if (!_fbUser || !_fbDb) return false;
   try {
     const { doc, getDoc } = window._fb;
-    const snap = await getDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'index'));
-    if (!snap.exists()) return false;
-    const data = snap.data();
-    BACKUP_KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); });
-    console.log('[Firebase] index 복원 완료');
-    return true;
+    let restored = false;
+
+    // index 복원
+    const iSnap = await getDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'index'));
+    if (iSnap.exists()) {
+      INDEX_KEYS.forEach(k => { if(iSnap.data()[k]) { localStorage.setItem(k, iSnap.data()[k]); restored = true; } });
+    }
+
+    // stock 복원
+    const sSnap = await getDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'stock'));
+    if (sSnap.exists()) {
+      STOCK_KEYS.forEach(k => { if(sSnap.data()[k]) { localStorage.setItem(k, sSnap.data()[k]); restored = true; } });
+    }
+
+    // fund 복원
+    const fSnap = await getDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'fund'));
+    if (fSnap.exists()) {
+      FUND_KEYS.forEach(k => { if(fSnap.data()[k]) { localStorage.setItem(k, fSnap.data()[k]); restored = true; } });
+    }
+
+    console.log('[Firebase] 전체 복원 완료 ✅');
+    return restored;
   } catch(e) {
     console.warn('[Firebase] 복원 실패:', e);
     return false;
