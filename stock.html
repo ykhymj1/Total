@@ -281,6 +281,146 @@ function getFxCache() {
 window.__cache = { prices: getPricesCache(), fxCache: getFxCache() };
 </script>
 
+<!-- ════════════════════════════════════════
+  ★ Firebase 동기화 (stock.html 전용)
+  - 종목 데이터(holdings)를 Firestore에 자동 저장
+  - 새 핸드폰에서 로그인하면 자동 복원
+════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const FB_CONFIG = {
+  apiKey:            "AIzaSyD9A3cbUujY4agOwB0OL45ccsfRhBXETMw",
+  authDomain:        "mymonth-6cd61.firebaseapp.com",
+  projectId:         "mymonth-6cd61",
+  storageBucket:     "mymonth-6cd61.firebasestorage.app",
+  messagingSenderId: "1067760522796",
+  appId:             "1:1067760522796:web:f97a12c210482e6e8de389"
+};
+
+// iframe 안에서만 실행 (index.html 안에 iframe으로 열릴 때)
+// 직접 열어도 작동함
+const app  = initializeApp(FB_CONFIG, "stock-app");
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// 백업할 localStorage 키 목록
+const STOCK_KEYS = ["pf_v4", "pf_history_v1", "pf_acct_order", "pf_item_order"];
+
+// ── 백업: localStorage → Firestore ──
+async function backupStock(uid) {
+  try {
+    const data = { updatedAt: new Date().toISOString() };
+    STOCK_KEYS.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v !== null) data[k] = v;
+    });
+    await setDoc(doc(db, "users", uid, "apps", "stock"), data, { merge: true });
+    console.log("[Stock] Firestore 백업 완료 ✅");
+    showStockSyncBadge("✅ 백업됨");
+  } catch(e) {
+    console.warn("[Stock] 백업 실패:", e);
+  }
+}
+
+// ── 복원: Firestore → localStorage ──
+async function restoreStock(uid) {
+  try {
+    const snap = await getDoc(doc(db, "users", uid, "apps", "stock"));
+    if (!snap.exists()) {
+      console.log("[Stock] 클라우드 데이터 없음 (처음 사용)");
+      return false;
+    }
+    const data = snap.data();
+    let restored = false;
+    STOCK_KEYS.forEach(k => {
+      if (data[k] !== undefined) {
+        localStorage.setItem(k, data[k]);
+        restored = true;
+      }
+    });
+    if (restored) {
+      console.log("[Stock] Firestore 복원 완료 ✅");
+      return true;
+    }
+    return false;
+  } catch(e) {
+    console.warn("[Stock] 복원 실패:", e);
+    return false;
+  }
+}
+
+// ── 동기화 상태 배지 표시 ──
+function showStockSyncBadge(msg) {
+  let badge = document.getElementById("_stock_sync_badge");
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.id = "_stock_sync_badge";
+    badge.style.cssText = `
+      position:fixed; bottom:70px; right:12px; z-index:8000;
+      background:#0a1628; border:1px solid #00ffcc;
+      border-radius:20px; padding:6px 12px;
+      font-size:11px; color:#00ffcc;
+      font-family:'DM Mono',monospace;
+      pointer-events:none;
+      transition:opacity .3s;
+    `;
+    document.body.appendChild(badge);
+  }
+  badge.textContent = "☁️ " + msg;
+  badge.style.opacity = "1";
+  setTimeout(() => { badge.style.opacity = "0"; }, 3000);
+}
+
+// ── localStorage 변경 감지 → 자동 백업 ──
+let _backupTimer = null;
+let _currentUid  = null;
+
+const origSetItem = localStorage.setItem.bind(localStorage);
+localStorage.setItem = function(k, v) {
+  origSetItem(k, v);
+  if (STOCK_KEYS.includes(k) && _currentUid) {
+    clearTimeout(_backupTimer);
+    _backupTimer = setTimeout(() => backupStock(_currentUid), 3000);
+  }
+};
+
+// ── 로그인 상태 감지 ──
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    console.log("[Stock] 로그인 안 됨 — 동기화 없이 로컬 사용");
+    return;
+  }
+
+  _currentUid = user.uid;
+  console.log("[Stock] 로그인 감지:", user.email);
+
+  // ★ 핵심: 클라우드에 데이터가 있으면 복원, 없으면 현재 데이터 백업
+  const localData = localStorage.getItem("pf_v4");
+  const snap = await getDoc(doc(db, "users", user.uid, "apps", "stock"));
+
+  if (snap.exists() && snap.data()["pf_v4"]) {
+    // 클라우드 데이터 있음
+    const cloudData = snap.data()["pf_v4"];
+    if (!localData || localData === '{"holdings":{},"fxRate":1360}') {
+      // 로컬 데이터가 비어있음 → 클라우드에서 복원
+      const ok = await restoreStock(user.uid);
+      if (ok) {
+        showStockSyncBadge("데이터 복원됨! 새로고침 중...");
+        setTimeout(() => location.reload(), 1500);
+      }
+    } else {
+      // 로컬에도 데이터 있음 → 로컬이 최신이므로 백업
+      setTimeout(() => backupStock(user.uid), 2000);
+    }
+  } else {
+    // 클라우드 데이터 없음 → 현재 로컬 데이터를 백업
+    setTimeout(() => backupStock(user.uid), 2000);
+  }
+});
+</script>
 
 <script>
 // Promise.any 폴리필 (구형 안드로이드 크롬 지원)
