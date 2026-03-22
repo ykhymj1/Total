@@ -19,14 +19,53 @@ input:focus{outline:none;}
 *{scrollbar-width:none;}
 
 /* ── 화면 레이어 ── */
-#lockScreen,#homeScreen,#appLayer{position:fixed;inset:0;max-width:480px;margin:0 auto;}
+#loginScreen,#lockScreen,#homeScreen,#appLayer{position:fixed;inset:0;max-width:480px;margin:0 auto;}
+
+/* ══════════════════════════════
+   ★ 새로 추가: Firebase 로그인 화면
+══════════════════════════════ */
+#loginScreen{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#060d1a 0%,#070e1c 100%);
+  padding:32px 24px;z-index:200;overflow-y:auto;
+}
+#loginScreen.show{display:flex;}
+.login-input{
+  width:100%;padding:16px 18px;
+  background:#0e1c2e;border:1.5px solid #1e3250;
+  border-radius:14px;color:#f0f4f8;
+  font-size:16px!important;outline:none;
+  box-sizing:border-box;transition:border-color .2s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.login-input:focus{border-color:#4a8fff;}
+.login-btn-primary{
+  width:100%;padding:16px;
+  background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+  border:none;border-radius:14px;color:#fff;
+  font-size:15px;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+  transition:opacity .15s;
+}
+.login-btn-primary:active{opacity:.85;}
+.login-btn-primary:disabled{background:#1a2a44;color:#7090b8;cursor:not-allowed;}
+.login-btn-secondary{
+  width:100%;padding:14px;
+  background:transparent;border:1.5px solid #1e3250;
+  border-radius:14px;color:#7090b8;
+  font-size:14px;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+  transition:border-color .2s;
+}
+.login-btn-secondary:active{border-color:#4a8fff;color:#4a8fff;}
 
 /* ── 잠금화면 ── */
 #lockScreen{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
   background:linear-gradient(160deg,#0c2040 0%,#070e1c 100%);
   padding:32px 24px;z-index:100;overflow-y:auto;
 }
+#lockScreen.show{display:flex;}
 .pin-dots{display:flex;gap:18px;margin-bottom:34px;}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #253a5c;transition:all .14s;}
 .pin-dot.filled{background:#60a5fa;border-color:#60a5fa;box-shadow:0 0 10px rgba(96,165,250,.7);}
@@ -61,9 +100,88 @@ input:focus{outline:none;}
   display:none;
 }
 #stockFrame.show,#fundFrame.show{display:block;}
+
+/* ── 로그인 상태 배지 (홈 우상단) ── */
+#loginBadge{
+  position:fixed;top:14px;right:14px;z-index:80;
+  background:#0a1628;border:1px solid #1e2e48;
+  border-radius:20px;padding:6px 12px;
+  font-size:11px;color:#7090b8;
+  font-family:'DM Mono',monospace;
+  cursor:pointer;display:none;
+}
+#loginBadge.show{display:flex;align-items:center;gap:5px;}
+
+/* ── 토스트 ── */
+#syncToast{
+  position:fixed;bottom:80px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  z-index:9000;background:#0f1628;
+  border:1px solid #4a8fff;border-radius:12px;
+  padding:12px 20px;font-size:13px;color:#f0f4f8;
+  font-family:'Noto Sans KR',sans-serif;font-weight:600;
+  white-space:nowrap;opacity:0;transition:all .28s;
+  pointer-events:none;
+}
+#syncToast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
+
+<!-- ════════════════════════════════════════
+  ★ 새로 추가: Firebase 로그인 화면
+  앱 최초 실행 or 로그아웃 후에만 표시됩니다
+════════════════════════════════════════ -->
+<div id="loginScreen">
+  <!-- 로고 -->
+  <div style="text-align:center;margin-bottom:36px;">
+    <div style="font-size:52px;margin-bottom:12px;">🏦</div>
+    <div style="font-size:10px;color:#4a8fff;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;font-family:'DM Mono',monospace;">MY ASSET MANAGER</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;">내 자산관리</div>
+    <div style="font-size:12px;color:#7090b8;line-height:1.7;">
+      로그인하면 핸드폰을 바꿔도<br/>데이터가 자동으로 동기화돼요 ☁️
+    </div>
+  </div>
+
+  <!-- 입력 폼 -->
+  <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+    <input id="loginEmail" class="login-input" type="email"
+      placeholder="이메일 주소" autocomplete="email"
+      oninput="clearLoginErr()"/>
+    <input id="loginPw" class="login-input" type="password"
+      placeholder="비밀번호 (6자 이상)" autocomplete="current-password"
+      oninput="clearLoginErr()"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}"/>
+
+    <!-- 에러 메시지 -->
+    <div id="loginErr" style="font-size:12px;color:#ff4444;text-align:center;min-height:18px;font-weight:600;"></div>
+
+    <!-- 로그인 버튼 -->
+    <button id="loginBtn" class="login-btn-primary" onclick="doLogin()">
+      🔑 로그인
+    </button>
+
+    <!-- 계정 만들기 버튼 -->
+    <button id="registerBtn" class="login-btn-secondary" onclick="doRegister()">
+      ✉️ 처음이에요 — 계정 만들기
+    </button>
+
+    <!-- 구분선 -->
+    <div style="display:flex;align-items:center;gap:12px;margin:4px 0;">
+      <div style="flex:1;height:1px;background:#1e2e48;"></div>
+      <div style="font-size:11px;color:#3a5470;">또는</div>
+      <div style="flex:1;height:1px;background:#1e2e48;"></div>
+    </div>
+
+    <!-- 로그인 없이 사용 -->
+    <button onclick="skipLogin()"
+      style="background:none;border:none;color:#3a5470;font-size:12px;
+        cursor:pointer;text-decoration:underline;padding:8px;
+        font-family:'Noto Sans KR',sans-serif;">
+      나중에 하기 (동기화 없이 사용)
+    </button>
+  </div>
+</div>
 
 <!-- ════════ PIN 설정 (최초 1회) ════════ -->
 <div id="pinSetup">
@@ -186,9 +304,17 @@ input:focus{outline:none;}
 
   </div>
 
-  <!-- 하단 잠금 버튼 -->
-  <div style="padding:20px 16px;text-align:center;">
-    <button onclick="lockApp()" style="background:none;border:1px solid #1e2e48;border-radius:12px;color:#4a5568;font-size:13px;padding:10px 28px;cursor:pointer;">🔒 잠금</button>
+  <!-- 하단 버튼 영역 -->
+  <div style="padding:20px 16px;display:flex;align-items:center;justify-content:space-between;">
+    <button onclick="lockApp()" style="background:none;border:1px solid #1e2e48;border-radius:12px;color:#4a5568;font-size:13px;padding:10px 24px;cursor:pointer;">🔒 잠금</button>
+    <!-- ★ 동기화 상태 버튼 -->
+    <button id="syncStatusBtn" onclick="showSyncMenu()"
+      style="background:none;border:1px solid #1e2e48;border-radius:12px;
+        color:#4a5568;font-size:13px;padding:10px 16px;cursor:pointer;
+        display:flex;align-items:center;gap:6px;">
+      <span id="syncIcon">☁️</span>
+      <span id="syncLabel" style="font-size:11px;font-family:'DM Mono',monospace;">동기화</span>
+    </button>
   </div>
 </div>
 
@@ -198,10 +324,324 @@ input:focus{outline:none;}
   <iframe id="fundFrame"  src="fund.html"  allow="camera; microphone" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
 </div>
 
+<!-- 토스트 -->
+<div id="syncToast"></div>
+
+<!-- 동기화 메뉴 오버레이 -->
+<div id="syncMenuOverlay" style="display:none;position:fixed;inset:0;z-index:500;" onclick="closeSyncMenu()"></div>
+<div id="syncMenu" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  z-index:501;background:#0f1628;border:1px solid #1e2e48;border-radius:18px;
+  padding:20px;width:calc(100% - 32px);max-width:440px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.7);font-family:'Noto Sans KR',sans-serif;">
+</div>
+
 <script>
 'use strict';
+
 /* ════════════════════════════════
-   PIN 잠금 시스템
+   ★ Firebase 설정
+════════════════════════════════ */
+const FB_CONFIG = {
+  apiKey:            "AIzaSyD9A3cbUujY4agOwB0OL45ccsfRhBXETMw",
+  authDomain:        "mymonth-6cd61.firebaseapp.com",
+  projectId:         "mymonth-6cd61",
+  storageBucket:     "mymonth-6cd61.firebasestorage.app",
+  messagingSenderId: "1067760522796",
+  appId:             "1:1067760522796:web:f97a12c210482e6e8de389"
+};
+
+let _fbAuth = null, _fbDb = null, _fbUser = null;
+let _fbReady = false;
+
+/* Firebase SDK 로드 및 초기화 */
+async function initFirebase() {
+  try {
+    const [
+      { initializeApp },
+      { getAuth, onAuthStateChanged,
+        signInWithEmailAndPassword,
+        createUserWithEmailAndPassword,
+        signOut },
+      { getFirestore, doc, setDoc, getDoc }
+    ] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js")
+    ]);
+
+    const app = initializeApp(FB_CONFIG);
+    _fbAuth = getAuth(app);
+    _fbDb   = getFirestore(app);
+    _fbReady = true;
+
+    // 전역 함수 저장
+    window._fb = {
+      signInWithEmailAndPassword, createUserWithEmailAndPassword,
+      signOut, doc, setDoc, getDoc
+    };
+
+    // ★ 로그인 상태 감지 — 앱 흐름의 핵심
+    onAuthStateChanged(_fbAuth, async (user) => {
+      _fbUser = user;
+      if (user) {
+        // ✅ 로그인됨
+        updateSyncStatus(true, user.email);
+        // 혹시 로그인 화면이 떠있으면 닫기
+        hideLoginScreen();
+        // 백그라운드에서 자동 백업 (3초 후)
+        setTimeout(() => backupToCloud(), 3000);
+      } else {
+        // ❌ 로그아웃 상태
+        updateSyncStatus(false, null);
+      }
+    });
+
+    return true;
+  } catch(e) {
+    console.warn("[Firebase] 초기화 실패:", e);
+    return false;
+  }
+}
+
+/* ════════════════════════════════
+   ★ 로그인 화면 제어
+════════════════════════════════ */
+function showLoginScreen() {
+  document.getElementById('loginScreen').classList.add('show');
+}
+function hideLoginScreen() {
+  document.getElementById('loginScreen').classList.remove('show');
+}
+
+/* 에러 메시지 지우기 */
+window.clearLoginErr = function() {
+  document.getElementById('loginErr').textContent = '';
+};
+
+/* ★ 로그인 실행 */
+window.doLogin = async function() {
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  const pw    = document.getElementById('loginPw').value || '';
+  const errEl = document.getElementById('loginErr');
+  const btn   = document.getElementById('loginBtn');
+
+  if (!email) { errEl.textContent = '이메일을 입력해주세요'; return; }
+  if (!pw)    { errEl.textContent = '비밀번호를 입력해주세요'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 로그인 중...';
+  errEl.textContent = '';
+
+  try {
+    await window._fb.signInWithEmailAndPassword(_fbAuth, email, pw);
+    // 성공 → onAuthStateChanged 가 자동으로 처리
+    showSyncToast('✅ 로그인 완료!');
+    hideLoginScreen();
+    // PIN 화면으로 이동
+    startApp();
+  } catch(e) {
+    const msg =
+      e.code === 'auth/user-not-found'   ? '등록된 이메일이 없어요. 계정 만들기를 눌러주세요.' :
+      e.code === 'auth/wrong-password'   ? '비밀번호가 틀렸어요.' :
+      e.code === 'auth/invalid-email'    ? '이메일 형식이 올바르지 않아요.' :
+      e.code === 'auth/invalid-credential' ? '이메일 또는 비밀번호가 틀렸어요.' :
+      e.code === 'auth/too-many-requests'? '너무 많이 시도했어요. 잠시 후 다시 해주세요.' :
+      '로그인 실패: ' + (e.message || e.code);
+    errEl.textContent = msg;
+    btn.disabled = false;
+    btn.textContent = '🔑 로그인';
+  }
+};
+
+/* ★ 회원가입 실행 */
+window.doRegister = async function() {
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  const pw    = document.getElementById('loginPw').value || '';
+  const errEl = document.getElementById('loginErr');
+  const btn   = document.getElementById('registerBtn');
+
+  if (!email) { errEl.textContent = '이메일을 입력해주세요'; return; }
+  if (!pw || pw.length < 6) { errEl.textContent = '비밀번호는 6자 이상이어야 해요'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 계정 만드는 중...';
+  errEl.textContent = '';
+
+  try {
+    await window._fb.createUserWithEmailAndPassword(_fbAuth, email, pw);
+    showSyncToast('🎉 계정 생성 완료! 데이터를 백업합니다...');
+    hideLoginScreen();
+    startApp();
+    setTimeout(() => backupToCloud(), 2000);
+  } catch(e) {
+    const msg =
+      e.code === 'auth/email-already-in-use' ? '이미 사용 중인 이메일이에요. 로그인을 눌러주세요.' :
+      e.code === 'auth/weak-password'         ? '비밀번호가 너무 짧아요 (6자 이상).' :
+      e.code === 'auth/invalid-email'         ? '이메일 형식이 올바르지 않아요.' :
+      '계정 생성 실패: ' + (e.message || e.code);
+    errEl.textContent = msg;
+    btn.disabled = false;
+    btn.textContent = '✉️ 처음이에요 — 계정 만들기';
+  }
+};
+
+/* ★ 나중에 하기 (동기화 없이 사용) */
+window.skipLogin = function() {
+  localStorage.setItem('fb_login_skipped', '1');
+  hideLoginScreen();
+  startApp();
+};
+
+/* ════════════════════════════════
+   ★ 클라우드 백업 / 복원
+════════════════════════════════ */
+// 백업할 localStorage 키 목록
+const BACKUP_KEYS = ['asset_pin', 'asset_bio_cred'];
+
+async function backupToCloud() {
+  if (!_fbUser || !_fbDb) return;
+  try {
+    const data = { updatedAt: new Date().toISOString() };
+    BACKUP_KEYS.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v !== null) data[k] = v;
+    });
+    const { doc, setDoc } = window._fb;
+    await setDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'index'), data, { merge: true });
+    console.log('[Firebase] index 백업 완료');
+  } catch(e) {
+    console.warn('[Firebase] 백업 실패:', e);
+  }
+}
+
+async function restoreFromCloud() {
+  if (!_fbUser || !_fbDb) return false;
+  try {
+    const { doc, getDoc } = window._fb;
+    const snap = await getDoc(doc(_fbDb, 'users', _fbUser.uid, 'apps', 'index'));
+    if (!snap.exists()) return false;
+    const data = snap.data();
+    BACKUP_KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); });
+    console.log('[Firebase] index 복원 완료');
+    return true;
+  } catch(e) {
+    console.warn('[Firebase] 복원 실패:', e);
+    return false;
+  }
+}
+
+/* ════════════════════════════════
+   ★ 동기화 상태 UI
+════════════════════════════════ */
+function updateSyncStatus(loggedIn, email) {
+  const icon  = document.getElementById('syncIcon');
+  const label = document.getElementById('syncLabel');
+  if (!icon || !label) return;
+  if (loggedIn) {
+    icon.textContent  = '✅';
+    label.textContent = email ? email.split('@')[0] : '연동됨';
+    label.style.color = '#00ffcc';
+  } else {
+    icon.textContent  = '☁️';
+    label.textContent = '동기화';
+    label.style.color = '#4a5568';
+  }
+}
+
+/* 동기화 메뉴 */
+window.showSyncMenu = function() {
+  const menu    = document.getElementById('syncMenu');
+  const overlay = document.getElementById('syncMenuOverlay');
+
+  if (menu.style.display === 'block') {
+    closeSyncMenu(); return;
+  }
+
+  if (_fbUser) {
+    menu.innerHTML = `
+      <div style="font-size:13px;color:#7090b8;margin-bottom:14px;text-align:center;">
+        ✅ <span style="color:#00ffcc;font-weight:700;">${_fbUser.email}</span><br>
+        <span style="font-size:11px;">로그인됨 · 데이터 자동 백업 중</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button onclick="backupToCloud();showSyncToast('☁️ 백업 완료!');closeSyncMenu();"
+          style="padding:14px;background:linear-gradient(135deg,#0a1e38,#0f2a48);
+            border:1px solid #4a8fff;border-radius:12px;color:#4a8fff;
+            font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+          ☁️ 지금 백업하기
+        </button>
+        <button onclick="doCloudRestore()"
+          style="padding:14px;background:#0a1628;border:1px solid #1e2e48;
+            border-radius:12px;color:#90b0cc;font-size:14px;cursor:pointer;
+            font-family:'Noto Sans KR',sans-serif;">
+          🔄 클라우드에서 복원
+        </button>
+        <button onclick="doLogout()"
+          style="padding:12px;background:transparent;border:none;
+            color:#3a5470;font-size:12px;cursor:pointer;
+            text-decoration:underline;font-family:'Noto Sans KR',sans-serif;">
+          로그아웃
+        </button>
+      </div>
+    `;
+  } else {
+    menu.innerHTML = `
+      <div style="font-size:13px;color:#7090b8;margin-bottom:16px;text-align:center;line-height:1.7;">
+        ☁️ 현재 로그인 안 된 상태예요<br>
+        <span style="font-size:11px;">로그인하면 데이터가 자동 백업돼요</span>
+      </div>
+      <button onclick="closeSyncMenu();showLoginScreen();"
+        style="width:100%;padding:16px;
+          background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+          border:none;border-radius:14px;color:#fff;
+          font-size:15px;font-weight:700;cursor:pointer;
+          font-family:'Noto Sans KR',sans-serif;">
+        🔑 로그인 / 계정 만들기
+      </button>
+    `;
+  }
+
+  menu.style.display    = 'block';
+  overlay.style.display = 'block';
+};
+
+window.closeSyncMenu = function() {
+  document.getElementById('syncMenu').style.display    = 'none';
+  document.getElementById('syncMenuOverlay').style.display = 'none';
+};
+
+window.doLogout = async function() {
+  closeSyncMenu();
+  try {
+    await window._fb.signOut(_fbAuth);
+    localStorage.removeItem('fb_login_skipped');
+    showSyncToast('로그아웃됐어요');
+    updateSyncStatus(false, null);
+  } catch(e) {}
+};
+
+window.doCloudRestore = async function() {
+  closeSyncMenu();
+  showSyncToast('🔄 복원 중...');
+  const ok = await restoreFromCloud();
+  if (ok) {
+    showSyncToast('✅ 복원 완료! 앱을 새로고침합니다...');
+    setTimeout(() => location.reload(), 1800);
+  } else {
+    showSyncToast('☁️ 복원할 데이터가 없어요');
+  }
+};
+
+/* 토스트 */
+function showSyncToast(msg) {
+  const t = document.getElementById('syncToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+/* ════════════════════════════════
+   PIN 잠금 시스템 (기존 그대로)
 ════════════════════════════════ */
 const PIN_KEY = 'asset_pin';
 const BIO_KEY = 'asset_bio_cred';
@@ -213,7 +653,6 @@ const hasBio = () => !!localStorage.getItem(BIO_KEY);
 const bioOk  = () => !!window.PublicKeyCredential;
 const RP_ID  = location.hostname || 'localhost';
 
-/* PIN 입력 */
 function pk(k){ if(pinBuf.length>=4)return; pinBuf+=k; dots('d',pinBuf.length); if(pinBuf.length===4)setTimeout(checkPin,120); }
 function pdel(){ pinBuf=pinBuf.slice(0,-1); dots('d',pinBuf.length); }
 function checkPin(){
@@ -225,7 +664,6 @@ function checkPin(){
   }
 }
 
-/* PIN 설정 */
 function sk(k){ if(setupBuf.length>=4)return; setupBuf+=k; dots('s',setupBuf.length); if(setupBuf.length===4)setTimeout(handleSetup,120); }
 function sdel(){ setupBuf=setupBuf.slice(0,-1); dots('s',setupBuf.length); }
 function handleSetup(){
@@ -236,7 +674,7 @@ function handleSetup(){
     if(setupBuf===setupFirst){
       setPin(setupBuf); setupBuf=''; setupFirst=''; setupPhase=0;
       document.getElementById('pinSetup').classList.remove('show');
-      document.getElementById('lockScreen').style.display='flex';
+      document.getElementById('lockScreen').classList.add('show');
       document.getElementById('bioRegBtn').style.display='flex';
       setSt('PIN 입력 후 지문을 등록할 수 있습니다','');
     } else {
@@ -282,6 +720,8 @@ async function enrollBio(){
     bs.textContent='✓ 지문 등록 완료!'; bs.className='bio-status ok';
     document.getElementById('bioRegBtn').style.display='none';
     setSt('🫆 버튼으로 지문 잠금해제','');
+    // 지문 등록 후 클라우드 백업
+    setTimeout(() => backupToCloud(), 500);
   } catch(e){ bs.textContent=e.name==='NotAllowedError'?'지문 취소됨':'등록 실패'; bs.className='bio-status err'; }
 }
 
@@ -291,7 +731,7 @@ async function enrollBio(){
 let _stockLoaded=false, _fundLoaded=false;
 
 function unlock(){
-  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('lockScreen').classList.remove('show');
   document.getElementById('pinSetup').classList.remove('show');
   showHome();
 }
@@ -301,7 +741,6 @@ function showHome(){
   document.getElementById('appLayer').classList.remove('show');
   document.getElementById('stockFrame').classList.remove('show');
   document.getElementById('fundFrame').classList.remove('show');
-  // 날짜
   const now=new Date(), days=['일','월','화','수','목','금','토'];
   document.getElementById('homeDateTxt').textContent=
     `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${days[now.getDay()]})`;
@@ -319,23 +758,21 @@ function lockApp(){
   document.getElementById('appLayer').classList.remove('show');
   document.getElementById('stockFrame').classList.remove('show');
   document.getElementById('fundFrame').classList.remove('show');
-  document.getElementById('lockScreen').style.display='flex';
+  document.getElementById('lockScreen').classList.add('show');
   pinBuf=''; dots('d',0); setSt('','');
   if(hasBio()) setTimeout(tryBio, 400);
 }
 
 /* ════════════════════════════════
-   postMessage 수신 (자식 iframe → 부모)
+   postMessage 수신
 ════════════════════════════════ */
 const won = n => '₩' + Math.round(Math.abs(n)).toLocaleString('ko-KR');
 const pct  = n => (n>=0?'+':'-') + Math.abs(n).toFixed(2) + '%';
-
 let _stockData = null, _fundData = null;
 
 window.addEventListener('message', e => {
   const d = e.data;
   if(!d||!d.type) return;
-
   if(d.type === 'GO_HOME'){ showHome(); return; }
 
   if(d.type === 'STOCK_SUMMARY'){
@@ -380,26 +817,60 @@ function updateTotal(){
 }
 
 /* ════════════════════════════════
-   초기화
+   ★ 앱 시작 흐름
+   Firebase 로그인 → PIN → 홈
 ════════════════════════════════ */
-(function init(){
+function startApp() {
+  // PIN 설정 여부 확인
   if(!getPin()){
-    // PIN 미설정 → PIN 설정 화면
-    document.getElementById('lockScreen').style.display='none';
     document.getElementById('pinSetup').classList.add('show');
-  } else if(hasBio()){
-    setSt('🫆 버튼으로 지문 잠금해제','');
-    setTimeout(tryBio, 400);
   } else {
-    document.getElementById('bioRegBtn').style.display='flex';
-    setSt('PIN 입력 후 지문을 등록할 수 있습니다','');
+    document.getElementById('lockScreen').classList.add('show');
+    if(hasBio()){
+      setSt('🫆 버튼으로 지문 잠금해제','');
+      setTimeout(tryBio, 400);
+    } else {
+      document.getElementById('bioRegBtn').style.display='flex';
+      setSt('PIN 입력 후 지문을 등록할 수 있습니다','');
+    }
+    if(!bioOk()){ document.getElementById('bioRegBtn').style.display='none'; }
+    else{
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(ok=>{
+        if(!ok) document.getElementById('bioRegBtn').style.display='none';
+      }).catch(()=>{});
+    }
   }
-  // 지문 지원 여부 확인
-  if(!bioOk()){ document.getElementById('bioRegBtn').style.display='none'; }
-  else{
-    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(ok=>{
-      if(!ok) document.getElementById('bioRegBtn').style.display='none';
-    }).catch(()=>{});
+}
+
+/* ════════════════════════════════
+   ★ 초기화 — Firebase 먼저, 그 다음 앱
+════════════════════════════════ */
+(async function init(){
+  // Firebase 초기화 시도
+  const fbOk = await initFirebase();
+
+  if (fbOk) {
+    // Firebase OK → 로그인 상태 확인 (onAuthStateChanged 에서 자동 처리)
+    // 약간 기다렸다가 (onAuthStateChanged 응답 대기) 로그인 여부 결정
+    await new Promise(r => setTimeout(r, 800));
+
+    if (!_fbUser) {
+      // 로그인 안 된 상태
+      const skipped = localStorage.getItem('fb_login_skipped');
+      if (skipped) {
+        // 이전에 "나중에 하기" 선택 → 바로 PIN 화면
+        startApp();
+      } else {
+        // 로그인 화면 표시
+        showLoginScreen();
+      }
+    } else {
+      // 이미 로그인됨 → 바로 PIN 화면
+      startApp();
+    }
+  } else {
+    // Firebase 실패 (오프라인 등) → 그냥 PIN 화면
+    startApp();
   }
 })();
 </script>
