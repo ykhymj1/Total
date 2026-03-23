@@ -393,17 +393,17 @@ const{useState,useEffect,useCallback,useMemo,useRef,memo}=React;
 
 /* ─── 상수 ─── */
 const ACCOUNTS=[
-  {id:"amt",    label:"AMT 계좌", short:"AMT",  shared:true, color:"#f59e0b",icon:"🤝",types:["국내ETF","미국주식","미국ETF"]},
-  {id:"myamt",  label:"My AMT",   short:"MyAMT",shared:false,color:"#60a5fa",icon:"💎",types:["국내ETF","미국주식","미국ETF"]},
-  {id:"general",label:"일반계좌", short:"일반", shared:false,color:"#34d399",icon:"📂",types:["미국주식","미국ETF"]},
-  {id:"pension",label:"퇴직연금", short:"퇴직", shared:false,color:"#a78bfa",icon:"🏦",types:["국내ETF","펀드","적금"],pensionHint:true},
-  {id:"irp",    label:"IRP",      short:"IRP",  shared:false,color:"#fb923c",icon:"🔒",types:["국내ETF","펀드"]},
-  {id:"isa",    label:"ISA",      short:"ISA",  shared:false,color:"#f472b6",icon:"🌱",types:["국내ETF","펀드"]},
+  {id:"amt",    label:"AMT 계좌", short:"AMT",  shared:true, color:"#f59e0b",icon:"🤝",types:["국내주식","국내ETF","미국주식","미국ETF"]},
+  {id:"myamt",  label:"My AMT",   short:"MyAMT",shared:false,color:"#60a5fa",icon:"💎",types:["국내주식","국내ETF","미국주식","미국ETF"]},
+  {id:"general",label:"일반계좌", short:"일반", shared:false,color:"#34d399",icon:"📂",types:["국내주식","국내ETF","미국주식","미국ETF"]},
+  {id:"pension",label:"퇴직연금", short:"퇴직", shared:false,color:"#a78bfa",icon:"🏦",types:["국내주식","국내ETF","미국주식","미국ETF","펀드","적금"],pensionHint:true},
+  {id:"irp",    label:"IRP",      short:"IRP",  shared:false,color:"#fb923c",icon:"🔒",types:["국내주식","국내ETF","미국주식","미국ETF","펀드"]},
+  {id:"isa",    label:"ISA",      short:"ISA",  shared:false,color:"#f472b6",icon:"🌱",types:["국내주식","국내ETF","미국주식","미국ETF","펀드"]},
   {id:"amtcma", label:"AMT CMA",  short:"ACMA", shared:true, color:"#06b6d4",icon:"💳",types:["CMA"],cmaType:true},
   {id:"mycma",  label:"내 CMA",   short:"MyCMA",shared:false,color:"#67e8f9",icon:"💰",types:["CMA"],cmaType:true},
 ];
-const AUTO_TYPES=["국내ETF","미국주식","미국ETF"];
-const TYPE_COLORS={"국내ETF":"#f59e0b","미국주식":"#60a5fa","미국ETF":"#a78bfa","펀드":"#34d399","적금":"#fb923c","CMA":"#06b6d4","MyCMA":"#67e8f9"};
+const AUTO_TYPES=["국내주식","국내ETF","미국주식","미국ETF"];
+const TYPE_COLORS={"국내주식":"#10b981","국내ETF":"#f59e0b","미국주식":"#60a5fa","미국ETF":"#a78bfa","펀드":"#34d399","적금":"#fb923c","CMA":"#06b6d4","MyCMA":"#67e8f9"};
 const DEFAULT_FX=1360;
 const SK="pf_v4";
 const SK_PRICES="pf_prices_cache";
@@ -752,7 +752,7 @@ const FormModal=memo(function FormModal({show,form,setForm,editIdx,mAcct,prices,
   const p2=useMemo(()=>calcSavings({principal:form.principal,rate:form.rate,startDate:form.startDate}),[form.principal,form.rate,form.startDate]);
   const p3=useMemo(()=>calcFund({nav:form.nav,qty:form.qty,avgNav:form.avgNav}),[form.nav,form.qty,form.avgNav]);
   const p4=useMemo(()=>{
-    const pk=form.ticker?(form.assetType==="국내ETF"?form.ticker+".KS":form.ticker):null,pi=pk?prices[pk]:null;
+    const pk=form.ticker?((form.assetType==="국내ETF"||form.assetType==="국내주식")?form.ticker+".KS":form.ticker):null,pi=pk?prices[pk]:null;
     const cur=pi?pi.price:(parseFloat(form.currentPrice)||0),avg=parseFloat(form.avgPrice)||0,qty=parseFloat(form.qty)||0;
     if(!avg||!qty)return null;
     const fx=fxRate||DEFAULT_FX,ck=toKRW(cur||avg,form.currency||"KRW",fx),ak=toKRW(avg,form.currency||"KRW",fx);
@@ -863,21 +863,21 @@ const FormModal=memo(function FormModal({show,form,setForm,editIdx,mAcct,prices,
     /* ETF/주식 */
     return(<>
       <div style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,padding:12,fontSize:12,color:C.sub,lineHeight:1.7}}>
-        🔄 <b style={{color:C.text}}>국내ETF·미국주식·ETF</b>: 티커 → 자동시세(10~20분지연)<br/>
+        🔄 <b style={{color:C.text}}>국내주식·국내ETF·미국주식·ETF</b>: 티커 → 자동시세(10~20분지연)<br/>
         📊 <b style={{color:C.text}}>펀드</b>: 기준가 방식 · 💰 <b style={{color:C.text}}>적금</b>: 이자 자동계산
       </div>
       <div><Lbl t="자산유형"/><ModalSelect style={INP} value={at||mAcct.types[0]} onChange={e=>sfM({assetType:e.target.value,ticker:"",qty:"",avgPrice:"",nav:"",avgNav:"",principal:"",rate:"",startDate:"",currentPrice:""})}>{mAcct.types.map(t=><option key={t}>{t}</option>)}</ModalSelect></div>
       <div><Lbl t="종목명 *"/><ModalInput style={INP} placeholder="예: KODEX 200, AAPL, QQQ" value={form.name||""} onChange={e=>sf("name",e.target.value)}/></div>
       <div>
         <Lbl t="티커 (자동시세용)"/>
-        <ModalInput style={INP} autoCapitalize="characters" placeholder="국내ETF: 069500  미국: AAPL, QQQ" value={form.ticker||""}
+        <ModalInput style={INP} autoCapitalize="characters" placeholder="국내주식: 005930  국내ETF: 069500  미국: AAPL" value={form.ticker||""}
           onChange={e=>{
             const tk=e.target.value.trim().toUpperCase();
             sf("ticker",tk);
             // ★ 티커 입력 완료시 (6자 이상) 즉시 시세 조회
             if(tk.length>=2&&onFetchTicker)onFetchTicker(tk,form.assetType||"미국주식");
           }}/>
-        <div style={{fontSize:11,color:C.muted,marginTop:5}}>국내ETF: 숫자 6자리 입력 (예: 069500) · .KS 자동추가</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:5}}>국내주식·ETF: 숫자 6자리 (예: 005930, 069500) · .KS 자동추가 | 미국: AAPL, QQQ</div>
       </div>
       <div style={{display:"flex",gap:10}}>
         <div style={{flex:1}}><Lbl t="수량 (주)"/><ModalInput style={INP} type="number" inputMode="numeric" placeholder="0" value={form.qty||""} onChange={e=>sf("qty",e.target.value)}/></div>
@@ -1203,7 +1203,7 @@ function App(){
       if(ac?.cmaType)return;
       (list||[]).forEach(h=>{
         if(!h.ticker||!AUTO_TYPES.includes(h.assetType))return;
-        const tk=h.assetType==="국내ETF"?h.ticker+".KS":h.ticker;
+        const tk=(h.assetType==="국내ETF"||h.assetType==="국내주식")?h.ticker+".KS":h.ticker;
         tickerMap[tk]=h.assetType;
       });
     });
@@ -1361,7 +1361,7 @@ function App(){
     if(h.assetType==="CMA"&&h.startDate&&h.rate&&h.principal){const c=calcCMA(h);if(c)return{...h,...c,pInfo:null,dayChg:null,calcMode:"cma"};}
     if(h.assetType==="적금"&&h.startDate&&h.rate){const s=calcSavings(h);if(s)return{...h,...s,pInfo:null,dayChg:null,calcMode:"savings"};}
     if(h.assetType==="펀드"&&h.nav&&h.qty){const f=calcFund(h);if(f)return{...h,...f,pInfo:null,dayChg:null,calcMode:"fund"};}
-    const pk=h.ticker?(h.assetType==="국내ETF"?h.ticker+".KS":h.ticker):"";
+    const pk=h.ticker?((h.assetType==="국내ETF"||h.assetType==="국내주식")?h.ticker+".KS":h.ticker):"";
     const pInfo=pk?pr[pk]:null;
     const cur=pInfo?pInfo.price:(parseFloat(h.currentPrice)||parseFloat(h.avgPrice)||0);
     const avg=parseFloat(h.avgPrice)||0,qty=parseFloat(h.qty)||0;
@@ -1453,7 +1453,7 @@ function App(){
   // ★ 단일 티커 즉시 조회 (모달 열릴때, 항상 최신 시세)
   const fetchSingleTicker=useCallback(async(ticker,assetType)=>{
     if(!ticker||!AUTO_TYPES.includes(assetType)||assetType==="CMA")return;
-    const tk=assetType==="국내ETF"?ticker+".KS":ticker;
+    const tk=(assetType==="국내ETF"||assetType==="국내주식")?ticker+".KS":ticker;
     const now=()=>new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
     const tf=async(url,ms,hdrs)=>{
       const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);
