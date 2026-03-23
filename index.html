@@ -952,20 +952,16 @@ function startApp() {
   });
 
   if (_fbUser) {
-    // ✅ 이미 로그인됨 → 바로 PIN 화면
+    // ✅ 이미 로그인됨 → PIN 화면
     updateSyncStatus(true, _fbUser.email);
     setTimeout(() => backupToCloud(), 3000);
-    startApp();
   } else {
-    // ❌ 로그아웃 상태
+    // 로그아웃 상태여도 PIN 화면으로 (로그인은 홈에서 선택적으로)
     updateSyncStatus(false, null);
-    const skipped = localStorage.getItem('fb_login_skipped');
-    if (skipped) {
-      startApp(); // 나중에 하기 선택했었으면 PIN 화면
-    } else {
-      showLoginScreen(); // 로그인 화면 표시
-    }
+    // 나중에 하기로 자동 처리
+    localStorage.setItem('fb_login_skipped', '1');
   }
+  startApp(); // 항상 PIN 화면으로
 })();
 </script>
 </body>
